@@ -37,9 +37,6 @@ class OrderController extends Controller
             $product_id = $_POST['product_id']; // Producto relacionado con la orden
             $quantity = $_POST['quantity']; // Cantidad de productos en la orden
             
-            // No guardar total_price si no existe la columna en la BD
-            // $total_price = $_POST['total_price'];
-            
             // Verificar si hay suficiente stock
             $product = Product::find($product_id);
             if ($product && $product->stock >= $quantity) {
@@ -56,9 +53,6 @@ class OrderController extends Controller
                 
                 // La fecha podría ser automática si estás usando timestamps
                 $order->date = date('Y-m-d H:i:s');
-                
-                // Eliminar esta línea si la columna no existe
-                // $order->total_price = $total_price;
                 
                 $order->save(); // Guardar la orden en la base de datos
     
@@ -105,18 +99,19 @@ class OrderController extends Controller
                     $order->discount = $_POST['discount'];
                 }
                 
-                $order->total_price = $_POST['total_price'];
                 $order->save();
                 
                 // Manejo de la relación con productos a través de la tabla pivote
-                if (isset($_POST['product_id']) && isset($_POST['quantity'])) {
+                if (isset($_POST['product_id']) && isset($_POST['quantity']) && $_POST['product_id'] !== '') {
                     $product_id = $_POST['product_id'];
                     $quantity = $_POST['quantity'];
                     $product = Product::find($product_id);
                     
                     if ($product) {
                         // Obtener información de la relación actual
-                        $pivot = $order->productos()->where('product_id', $product_id)->first();
+                        $pivot = $order->productos()
+                                 ->where('order_has_product.product_id', $product_id)
+                                 ->first();
                         
                         if ($pivot) {
                             // Si el producto ya estaba relacionado, actualizar la cantidad
@@ -178,7 +173,10 @@ class OrderController extends Controller
                     $product->save();
                 }
                 
-                // Eliminar la orden (las relaciones se eliminarán automáticamente si tienes cascades configurados)
+                // SOLUCIÓN: Eliminar primero las relaciones en la tabla intermedia
+                $order->productos()->detach();
+                
+                // Ahora sí podemos eliminar la orden
                 $order->delete();
             }
         }
